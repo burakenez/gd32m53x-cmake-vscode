@@ -1,0 +1,211 @@
+/*!
+    \file    gd32m53x_it.c
+    \brief   interrupt service routines
+
+    \version 2026-03-04, V1.0.0, firmware for GD32M53x
+*/
+
+/*
+    Copyright (c) 2026, GigaDevice Semiconductor Inc.
+
+    Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+    1. Redistributions of source code must retain the above copyright notice, this
+       list of conditions and the following disclaimer.
+    2. Redistributions in binary form must reproduce the above copyright notice,
+       this list of conditions and the following disclaimer in the documentation
+       and/or other materials provided with the distribution.
+    3. Neither the name of the copyright holder nor the names of its contributors
+       may be used to endorse or promote products derived from this software without
+       specific prior written permission.
+
+    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY
+OF SUCH DAMAGE.
+*/
+
+#include "gd32m53x_it.h"
+
+#define SRAM_ECC_ERROR_HANDLE(s)    do{}while(1)
+
+extern __IO uint32_t g_transfer_complete;
+
+/*!
+    \brief      this function handles NMI exception
+    \param[in]  none
+    \param[out] none
+    \retval     none
+*/
+void NMI_Handler(void)
+{
+    if(SET == syscfg_interrupt_flag_get(SYSCFG_INT_FLAG_ECC_ME0)) {
+        SRAM_ECC_ERROR_HANDLE("SRAM multi-bit error detected\r\n");
+    } else if(SET == syscfg_interrupt_flag_get(SYSCFG_INT_FLAG_ECC_ME1)) {
+        SRAM_ECC_ERROR_HANDLE("CAN FIFO SRAM multi-bit error detected\r\n");
+    } else if(SET == syscfg_interrupt_flag_get(SYSCFG_INT_FLAG_ECC_ME2)) {
+        SRAM_ECC_ERROR_HANDLE("CAN filter SRAM multi-bit error detected\r\n");
+    } else if(SET == syscfg_interrupt_flag_get(SYSCFG_INT_FLAG_ECC_ME3)) {
+        SRAM_ECC_ERROR_HANDLE("Flash SRAM multi-bit error detected\r\n");
+    } else {
+        /* if NMI exception occurs, go to infinite loop */
+        /* HXTAL clock monitor NMI error, NMI pin error or LVD / FWDGT / WWDGT NMI event error */
+        while(1) {
+        }
+    }
+}
+
+/*!
+    \brief      this function handles HardFault exception
+    \param[in]  none
+    \param[out] none
+    \retval     none
+*/
+void HardFault_Handler(void)
+{
+    /* if Hard Fault exception occurs, go to infinite loop */
+    while(1) {
+    }
+}
+
+/*!
+    \brief      this function handles MemManage exception
+    \param[in]  none
+    \param[out] none
+    \retval     none
+*/
+void MemManage_Handler(void)
+{
+    /* if Memory Manage exception occurs, go to infinite loop */
+    while(1) {
+    }
+}
+
+/*!
+    \brief      this function handles BusFault exception
+    \param[in]  none
+    \param[out] none
+    \retval     none
+*/
+void BusFault_Handler(void)
+{
+    /* if Bus Fault exception occurs, go to infinite loop */
+    while(1) {
+    }
+}
+
+/*!
+    \brief      this function handles UsageFault exception
+    \param[in]  none
+    \param[out] none
+    \retval     none
+*/
+void UsageFault_Handler(void)
+{
+    /* if Usage Fault exception occurs, go to infinite loop */
+    while(1) {
+    }
+}
+
+/*!
+    \brief      this function handles SVC exception
+    \param[in]  none
+    \param[out] none
+    \retval     none
+*/
+void SVC_Handler(void)
+{
+    /* if SVC exception occurs, go to infinite loop */
+    while(1) {
+    }
+}
+
+/*!
+    \brief      this function handles DebugMon exception
+    \param[in]  none
+    \param[out] none
+    \retval     none
+*/
+void DebugMon_Handler(void)
+{
+    /* if DebugMon exception occurs, go to infinite loop */
+    while(1) {
+    }
+}
+
+/*!
+    \brief      this function handles PendSV exception
+    \param[in]  none
+    \param[out] none
+    \retval     none
+*/
+void PendSV_Handler(void)
+{
+    /* if PendSV exception occurs, go to infinite loop */
+    while(1) {
+    }
+}
+
+/*!
+    \brief      this function handles external lines 7 interrupt
+    \param[in]  none
+    \param[out] none
+    \retval     none
+*/
+void EXTI5_9_IRQHandler(void)
+{
+    if(RESET != exti_interrupt_flag_get(EXTI_7)) {
+        exti_interrupt_flag_clear(EXTI_7);
+    }
+}
+
+/*!
+    \brief      this function handles external lines 2 interrupt
+    \param[in]  none
+    \param[out] none
+    \retval     none
+*/
+void EXTI2_IRQHandler(void)
+{
+    if(RESET != exti_interrupt_flag_get(EXTI_2)) {
+        exti_interrupt_flag_clear(EXTI_2);
+    }
+}
+
+/*!
+    \brief      this function handles DMAMUX_IRQn interrupt
+    \param[in]  none
+    \param[out] none
+    \retval     none
+*/
+void DMAMUX_IRQHandler(void)
+{
+    if(dmamux_interrupt_flag_get(DMAMUX_INT_FLAG_GENCH0_TO)) {
+        dmamux_interrupt_flag_clear(DMAMUX_INT_FLAG_GENCH0_TO);
+    }
+
+    if(dmamux_interrupt_flag_get(DMAMUX_INT_FLAG_MUXCH0_SO)) {
+        dmamux_interrupt_flag_clear(DMAMUX_INT_FLAG_MUXCH0_SO);
+    }
+}
+
+/*!
+    \brief      this function handles DMA_Channel0_IRQn interrupt
+    \param[in]  none
+    \param[out] none
+    \retval     none
+*/
+void DMA0_Channel0_IRQHandler(void)
+{
+    if(dma_interrupt_flag_get(DMA0, DMA_CH0, DMA_INT_FLAG_FTF)) {
+        dma_interrupt_flag_clear(DMA0, DMA_CH0, DMA_INT_FLAG_FTF);
+        g_transfer_complete = 1U;
+    }
+}

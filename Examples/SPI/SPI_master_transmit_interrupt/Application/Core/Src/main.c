@@ -1,0 +1,151 @@
+/*!
+    \file    main.c
+    \brief   master send data use interrupt mode
+
+    \version 2026-03-04, V1.0.0, firmware for GD32M53x
+*/
+
+/*
+
+    Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+    1. Redistributions of source code must retain the above copyright notice, this
+       list of conditions and the following disclaimer.
+    2. Redistributions in binary form must reproduce the above copyright notice,
+       this list of conditions and the following disclaimer in the documentation
+       and/or other materials provided with the distribution.
+    3. Neither the name of the copyright holder nor the names of its contributors
+       may be used to endorse or promote products derived from this software without
+       specific prior written permission.
+
+    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY
+OF SUCH DAMAGE.
+*/
+
+#include "gd32m53x.h"
+#include "gd32m53x_it.h"
+#include "gd32m531r_eval.h"
+
+#define SET_SPI_NSS_HIGH              gpio_bit_set(GPIOD, GPIO_PIN_8);
+#define SET_SPI_NSS_LOW               gpio_bit_reset(GPIOD, GPIO_PIN_8);
+#define ARRAYSIZE         10
+
+__IO uint32_t send_n = 0;
+uint8_t spi_send_array[ARRAYSIZE] = {0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7, 0xA8, 0xA9, 0xAA};
+
+void rcu_config(void);
+void gpio_config(void);
+void spi_config(void);
+
+/*!
+    \brief      main function
+    \param[in]  none
+    \param[out] none
+    \retval     none
+*/
+int main(void)
+{
+    /* initialize the LED */
+    gd_eval_led_init(LED2);
+
+    /* configure NVIC */
+    nvic_priority_group_set(NVIC_PRIGROUP_PRE1_SUB3);
+    nvic_irq_enable(SPI_IRQn, 1, 1);
+
+    /* enable peripheral clock */
+    rcu_config();
+    /* configure GPIO */
+    gpio_config();
+    /* configure SPI */
+    spi_config();
+    SET_SPI_NSS_HIGH
+
+    /* enable SPI interrupt */
+    spi_interrupt_enable(SPI_INT_TBE);
+    SET_SPI_NSS_LOW
+
+    /* enable SPI */
+    spi_enable();
+
+    /* wait transmit completed */
+    while(send_n < ARRAYSIZE);
+
+    /* check the CRC error status */
+    if(SET != spi_flag_get(SPI_FLAG_CRCERR)) {
+        gd_eval_led_on(LED2);
+    } else {
+        gd_eval_led_off(LED2);
+    }
+
+    while(1);
+}
+
+/*!
+    \brief      configure different peripheral clocks
+    \param[in]  none
+    \param[out] none
+    \retval     none
+*/
+void rcu_config(void)
+{
+    rcu_periph_clock_enable(RCU_GPIOD);
+    rcu_periph_clock_enable(RCU_GPIOF);
+    rcu_periph_clock_enable(RCU_SPI);
+}
+
+/*!
+    \brief      configure the GPIO peripheral
+    \param[in]  none
+    \param[out] none
+    \retval     none
+*/
+void gpio_config(void)
+{
+    /* configure SPI GPIO: SCK/PF11, MOSI/PF8 */
+    gpio_af_set(GPIOF, GPIO_AF_9, GPIO_PIN_11 | GPIO_PIN_8);
+    gpio_mode_set(GPIOF, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO_PIN_11 | GPIO_PIN_8);
+    gpio_output_options_set(GPIOF, GPIO_OTYPE_PP, GPIO_OSPEED_HIGH, GPIO_PIN_11 | GPIO_PIN_8);
+
+    /* configure SPI GPIO: NSS/PD8 */
+    gpio_mode_set(GPIOD, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO_PIN_8);
+    gpio_output_options_set(GPIOD, GPIO_OTYPE_PP, GPIO_OSPEED_HIGH, GPIO_PIN_8);
+}
+
+/*!
+    \brief      configure the SPI peripheral
+    \param[in]  none
+    \param[out] none
+    \retval     none
+*/
+void spi_config(void)
+{
+    spi_parameter_struct  spi_init_struct;
+    /* deinitialize SPI and the parameters */
+    spi_deinit();
+    spi_struct_para_init(&spi_init_struct);
+
+    /* SPI0 parameter config */
+    spi_init_struct.trans_mode           = SPI_TRANSMODE_BDTRANSMIT;
+    spi_init_struct.device_mode          = SPI_MASTER;
+    spi_init_struct.frame_size           = SPI_FRAMESIZE_8BIT;
+    spi_init_struct.clock_polarity_phase = SPI_CK_PL_HIGH_PH_2EDGE;
+    spi_init_struct.nss                  = SPI_NSS_SOFT;
+    spi_init_struct.prescale             = SPI_PSC_256;
+    spi_init_struct.endian               = SPI_ENDIAN_MSB;
+    spi_init(&spi_init_struct);
+
+#if SPI_CRC_ENABLE
+    /* configure SPI CRC function */
+    spi_crc_polynomial_set(7);
+    spi_crc_on();
+#endif /* enable CRC function */
+}
