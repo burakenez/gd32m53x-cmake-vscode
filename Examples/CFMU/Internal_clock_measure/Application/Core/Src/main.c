@@ -1,0 +1,100 @@
+/*!
+    \file    main.c
+    \brief   CFMU measure internal reference clock example
+
+    \version 2026-03-04, V1.0.0, firmware for GD32M53x
+*/
+
+/*
+    Copyright (c) 2026, GigaDevice Semiconductor Inc.
+
+    Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+    1. Redistributions of source code must retain the above copyright notice, this
+       list of conditions and the following disclaimer.
+    2. Redistributions in binary form must reproduce the above copyright notice,
+       this list of conditions and the following disclaimer in the documentation
+       and/or other materials provided with the distribution.
+    3. Neither the name of the copyright holder nor the names of its contributors
+       may be used to endorse or promote products derived from this software without
+       specific prior written permission.
+
+    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY
+OF SUCH DAMAGE.
+*/
+
+#include "gd32m53x.h"
+#include "systick.h"
+#include <stdio.h>
+#include "gd32m531r_eval.h"
+
+__IO uint32_t cfmu_flag = 0U;
+
+/*!
+    \brief      main function
+    \param[in]  none
+    \param[out] none
+    \retval     none
+*/
+
+int main(void)
+{
+    __IO uint32_t timeout = 0U;
+    __IO uint32_t stab_flag = 0U;
+    /* configure systick */
+    systick_config();
+    gd_eval_com_init(EVAL_COM);
+    rcu_periph_clock_enable(RCU_CFMU);
+
+    rcu_osci_on(RCU_HXTAL);
+    do {
+        timeout++;
+        stab_flag = (RCU_CTL & RCU_CTL_HXTALSTB);
+    } while((0U == stab_flag) && (HXTAL_STARTUP_TIMEOUT != timeout));
+
+    /* configure NVIC and CFMU interrupt */
+    nvic_priority_group_set(NVIC_PRIGROUP_PRE4_SUB0);
+    nvic_irq_enable(CFMU_IRQn, 0, 0);
+    cfmu_interrupt_enable(CFMU_INT_CFERR);
+    cfmu_interrupt_enable(CFMU_INT_CFMEND);
+    cfmu_interrupt_enable(CFMU_INT_OVF);
+
+    printf("CFMU interrupt test\n\r");
+    /* configure higher-limit and lower-limit value */
+    cfmu_limit_value_config(0x8100, 0x7F00);
+    /* configure reference clock */
+    cfmu_reference_signal_config(CFMU_RSSEL_INTERNAL_CLOCK);
+    cfmu_reference_clock_config(CFMU_RCKSRC_HXTAL, CFMU_RCK_DIV8192, CFMU_VAL_RISING);
+    /* configure measurement clock */
+    cfmu_measurement_clock_config(CFMU_MCKSRC_IRC32M, CFMU_MCK_DIV1);
+    cfmu_enable();
+
+    while(1) {
+        if(1U == cfmu_flag){
+            cfmu_flag = 0U;
+            delay_1ms(1000);
+            printf("Clock frequency accuracy measurement end!\n\r");
+        }else if(2U == cfmu_flag){
+            cfmu_flag = 0U;
+            cfmu_interrupt_disable(CFMU_INT_CFERR);
+            cfmu_interrupt_disable(CFMU_INT_CFMEND);
+            cfmu_interrupt_disable(CFMU_INT_OVF);
+            printf("Occurred overflow event!\n\r");
+        }else if(3U == cfmu_flag){
+            cfmu_flag = 0U;
+            cfmu_interrupt_disable(CFMU_INT_CFERR);
+            cfmu_interrupt_disable(CFMU_INT_CFMEND);
+            cfmu_interrupt_disable(CFMU_INT_OVF);
+            printf("Occurred clock frequency error event!\n\r");
+        }
+    }
+}
